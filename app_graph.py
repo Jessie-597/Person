@@ -1,9 +1,9 @@
+
 import streamlit as st
 import pandas as pd
 import sqlite3
 from pyvis.network import Network
 import streamlit.components.v1 as components
-import os
 
 # 資料庫路徑
 db_path = "story_graph.db"
@@ -12,118 +12,64 @@ db_path = "story_graph.db"
 def get_connection():
     return sqlite3.connect(db_path)
 
-# 載入表格資料
+# 載入資料表
 def load_table(table):
     conn = get_connection()
     df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     conn.close()
     return df
 
-# 載入所有資料
+# 載入所有資料（不改欄位名稱）
 def load_all_data():
-    # 載入與依據實際欄位個別重新命名
-    df_persons = load_table("Persons")
-    df_persons.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_events = load_table("Events")
-    df_events.rename(columns={"event_id": "id", "event_name": "name", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_eras = load_table("Eras")
-    df_eras.rename(columns={"era_id": "id", "era_name": "name", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_locations = load_table("Locations")
-    df_locations.rename(columns={"location_id": "id", "location_name": "name", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_objects = load_table("Objects")
-    df_objects.rename(columns={"object_id": "id", "object_name": "name", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_person_event = load_table("Person_Event")
-    df_person_location = load_table("Person_Location")
-    df_person_object = load_table("Person_Object")
-    df_person_era = load_table("Person_Era")
-    df_person_person = load_table("Person_Person")
-    df_person_person.rename(columns={"person_id_1": "person_id", "person_id_2": "related_person_id"}, inplace=True)
-
     return {
-        "persons": df_persons,
-        "events": df_events,
-        "eras": df_eras,
-        "locations": df_locations,
-        "objects": df_objects,
-        "person_event": df_person_event,
-        "person_location": df_person_location,
-        "person_object": df_person_object,
-        "person_era": df_person_era,
-        "person_person": df_person_person
-    }
-    df_persons = load_table("Persons")
-    df_persons.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_events = load_table("Events")
-    df_events.rename(columns={"event_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_locations = load_table("Locations")
-    df_locations.rename(columns={"location_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_objects = load_table("Objects")
-    df_objects.rename(columns={"object_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-
-    df_person_event = load_table("Person_Event")
-    df_person_location = load_table("Person_Location")
-    df_person_object = load_table("Person_Object")
-    df_person_person = load_table("Person_Person")
-
-    return {
-        "persons": df_persons,
-        "events": df_events,
-        "locations": df_locations,
-        "objects": df_objects,
-        "person_event": df_person_event,
-        "person_location": df_person_location,
-        "person_object": df_person_object,
-        "person_person": df_person_person
-    }
-    df.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
-    return {
-        "persons": df,
+        "persons": load_table("Persons"),
         "events": load_table("Events"),
+        "eras": load_table("Eras"),
         "locations": load_table("Locations"),
         "objects": load_table("Objects"),
         "person_event": load_table("Person_Event"),
+        "person_era": load_table("Person_Era"),
         "person_location": load_table("Person_Location"),
         "person_object": load_table("Person_Object"),
         "person_person": load_table("Person_Person")
     }
 
 # 建立知識圖譜
-def build_knowledge_graph(person_id, data):
+def build_graph(selected_id, data):
     net = Network(height="600px", width="100%", bgcolor="#ffffff", font_color="black")
 
-    person_row = data["persons"][data["persons"].id == person_id].iloc[0]
-    net.add_node(f"P{person_row.id}", label=person_row.name, title=person_row.description or person_row.name, 
-                 shape='dot', size=25, color='red', 
-                 href=person_row.wiki_url or "#")
+    main_row = data["persons"][data["persons"]["person_id"] == selected_id].iloc[0]
+    net.add_node(main_row["person_id"], label=main_row["name"],
+                 title=main_row["contribution"],
+                 href=main_row["wiki_link"], color="red")
 
-    def add_relation(df, src_col, tgt_df, tgt_prefix, label):
-        for _, row in df[df[src_col] == person_id].iterrows():
-            target_id = row[f"{label.lower()}_id"]
-            target_row = tgt_df[tgt_df.id == target_id].iloc[0]
-            net.add_node(f"{tgt_prefix}{target_id}", label=target_row.name, 
-                         title=target_row.get("description", target_row.name),
-                         href=target_row.get("wiki_url", "#"))
-            net.add_edge(f"P{person_id}", f"{tgt_prefix}{target_id}", label=label)
+    def link_related(df, src_col, tgt_col, target_df, target_id_col, target_name_col, label):
+        links = df[df[src_col] == selected_id]
+        for _, row in links.iterrows():
+            target_id = row[tgt_col]
+            target = target_df[target_df[target_id_col] == target_id]
+            if not target.empty:
+                t = target.iloc[0]
+                net.add_node(t[target_id_col], label=t[target_name_col],
+                             title=t.get("description", t.get("occupation", "")),
+                             href=t.get("wiki_link", "#"))
+                net.add_edge(main_row["person_id"], t[target_id_col], label=label)
 
-    add_relation(data["person_event"], "person_id", data["events"], "E", "Event")
-    add_relation(data["person_location"], "person_id", data["locations"], "L", "Location")
-    add_relation(data["person_object"], "person_id", data["objects"], "O", "Object")
+    link_related(data["person_event"], "person_id", "event_id", data["events"], "event_id", "event_name", "Event")
+    link_related(data["person_location"], "person_id", "location_id", data["locations"], "location_id", "location_name", "Location")
+    link_related(data["person_object"], "person_id", "object_id", data["objects"], "object_id", "object_name", "Object")
+    link_related(data["person_era"], "person_id", "era_id", data["eras"], "era_id", "era_name", "Era")
 
-    for _, row in data["person_person"][data["person_person"].person_id == person_id].iterrows():
-        target_id = row["related_person_id"]
-        target_row = data["persons"][data["persons"].id == target_id].iloc[0]
-        net.add_node(f"P{target_id}", label=target_row.name,
-                     title=target_row.get("description", target_row.name),
-                     href=target_row.get("wiki_url", "#"))
-        net.add_edge(f"P{person_id}", f"P{target_id}", label="Related")
+    # 人物關係
+    for _, row in data["person_person"][data["person_person"]["person_id_1"] == selected_id].iterrows():
+        related_id = row["person_id_2"]
+        related = data["persons"][data["persons"]["person_id"] == related_id]
+        if not related.empty:
+            r = related.iloc[0]
+            net.add_node(r["person_id"], label=r["name"],
+                         title=r.get("contribution", ""),
+                         href=r.get("wiki_link", "#"))
+            net.add_edge(main_row["person_id"], r["person_id"], label=row["relationship_type"])
 
     net.set_options("""
     var options = {
@@ -150,33 +96,15 @@ def build_knowledge_graph(person_id, data):
     """)
     return net
 
-# 主程式
-st.title("淡水人物誌知識圖譜系統")
+# Streamlit 主程式
+st.set_page_config(page_title="淡水人物知識圖譜", layout="wide")
+st.title("📚 淡水人物誌知識圖譜系統")
 
-with st.sidebar:
-    st.header("查詢功能")
-    search_type = st.selectbox("查詢類型", ["人物", "事件", "地點", "物件"])
-    keyword = st.text_input("請輸入關鍵字")
-
-    if st.button("執行查詢"):
-        conn = get_connection()
-        table_map = {"人物": "Persons", "事件": "Events", "地點": "Locations", "物件": "Objects"}
-        query = f"SELECT * FROM {table_map[search_type]} WHERE name LIKE ?"
-        df = pd.read_sql_query(query, conn, params=[f"%{keyword}%"])
-        conn.close()
-        st.subheader(f"查詢結果：{search_type}")
-        if not df.empty:
-            df["維基連結"] = df["wiki_url"].apply(lambda url: f"[連結]({url})" if pd.notnull(url) else "無")
-            st.dataframe(df.drop(columns=["wiki_url"]))
-        else:
-            st.info("查無資料")
-
-st.header("知識圖譜視覺化")
 data = load_all_data()
-person_options = data["persons"][["id", "name"]].dropna()
-selected_name = st.selectbox("請選擇要查看的主要人物：", person_options["name"])
-selected_id = person_options[person_options["name"] == selected_name]["id"].values[0]
+persons = data["persons"][["person_id", "name"]]
+selected_name = st.selectbox("請選擇人物：", persons["name"])
+selected_id = persons[persons["name"] == selected_name]["person_id"].values[0]
 
-net = build_knowledge_graph(selected_id, data)
+net = build_graph(selected_id, data)
 net.save_graph("graph.html")
 components.html(open("graph.html", "r", encoding="utf-8").read(), height=620, scrolling=True)
