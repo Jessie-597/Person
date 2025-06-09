@@ -86,8 +86,47 @@ st.title("📘 淡水人物誌知識圖譜")
 
 data = load_all_data()
 persons_df = data["persons"][["person_id", "name"]]
-selected_name = st.selectbox("請選擇人物：", persons_df["name"])
-selected_id = persons_df[persons_df["name"] == selected_name]["person_id"].values[0]
+persons_list = ["（全部展示）"] + persons_df["name"].tolist()
+selected_name = st.selectbox("請選擇人物或查看全部：", persons_list)
+if selected_name != "（全部展示）":
+    selected_id = persons_df[persons_df["name"] == selected_name]["person_id"].values[0]
+    net = build_knowledge_graph(selected_id, data)
+else:
+    from pyvis.network import Network
+    net = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="black")
+    import json
+    # 全部節點（人事時地物）
+    def add_nodes(df, id_col, label_col, wiki_col, group, color, title_col=None):
+        for _, row in df.iterrows():
+            label = row[label_col]
+            node_id = row[id_col]
+            title = row[title_col] if title_col and pd.notnull(row[title_col]) else label
+            href = row[wiki_col] if pd.notnull(row[wiki_col]) else "#"
+            net.add_node(node_id, label=label, title=title, group=group, color=color, href=href)
+
+    add_nodes(data["persons"], "person_id", "name", "wiki_link", "人物", "#FF6347", "contribution")
+    add_nodes(data["events"], "event_id", "event_name", "wiki_link", "事件", "#FFA500")
+    add_nodes(data["eras"], "era_id", "era_name", "wiki_link", "時代", "#9370DB")
+    add_nodes(data["locations"], "location_id", "location_name", "wiki_link", "地點", "#4682B4")
+    add_nodes(data["objects"], "object_id", "object_name", "wiki_link", "物件", "#3CB371")
+
+    def add_edges(df, src, tgt, label_col):
+        for _, row in df.iterrows():
+            net.add_edge(row[src], row[tgt], label=row[label_col])
+
+    add_edges(data["person_event"], "person_id", "event_id", "role")
+    add_edges(data["person_era"], "person_id", "era_id", "note")
+    add_edges(data["person_location"], "person_id", "location_id", "relation_type")
+    add_edges(data["person_object"], "person_id", "object_id", "relation_type")
+    add_edges(data["person_person"], "person_id_1", "person_id_2", "relationship_type")
+
+    options = {
+      "nodes": {"shape": "dot", "size": 16, "font": {"size": 14}, "borderWidth": 2},
+      "edges": {"width": 2},
+      "interaction": {"tooltipDelay": 200, "hideEdgesOnDrag": True},
+      "physics": {"stabilization": False}
+    }
+    net.set_options(json.dumps(options))
 
 net = build_knowledge_graph(selected_id, data)
 net.save_graph("graph.html")
