@@ -93,7 +93,7 @@ def build_graph(selected_id, data):
         stabilization: false
       }
     }
-}'''))
+}''')
     return net
 
 # Streamlit 主程式
