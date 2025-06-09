@@ -21,8 +21,10 @@ def load_table(table):
 
 # 載入所有資料
 def load_all_data():
+    df = load_table("Persons")
+    df.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
     return {
-        "persons": load_table("Persons"),
+        "persons": df,
         "events": load_table("Events"),
         "locations": load_table("Locations"),
         "objects": load_table("Objects"),
