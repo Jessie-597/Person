@@ -4,6 +4,7 @@ import pandas as pd
 import sqlite3
 from pyvis.network import Network
 import streamlit.components.v1 as components
+import json
 
 # 資料庫路徑
 db_path = "story_graph.db"
@@ -60,7 +61,6 @@ def build_graph(selected_id, data):
     link_related(data["person_object"], "person_id", "object_id", data["objects"], "object_id", "object_name", "Object")
     link_related(data["person_era"], "person_id", "era_id", data["eras"], "era_id", "era_name", "Era")
 
-    # 人物關係
     for _, row in data["person_person"][data["person_person"]["person_id_1"] == selected_id].iterrows():
         related_id = row["person_id_2"]
         related = data["persons"][data["persons"]["person_id"] == related_id]
@@ -71,28 +71,18 @@ def build_graph(selected_id, data):
                          href=r.get("wiki_link", "#"))
             net.add_edge(main_row["person_id"], r["person_id"], label=row["relationship_type"])
 
-    import json
+    # 合法 JSON 選項
     options = {
-  "nodes": {
-    "shape": "dot",
-    "size": 16,
-    "font": {
-      "size": 14,
-      "color": "#000"
-    },
-    "borderWidth": 2
-  },
-  "edges": {
-    "width": 2
-  },
-  "interaction": {
-    "tooltipDelay": 200,
-    "hideEdgesOnDrag": true
-  },
-  "physics": {
-    "stabilization": false
-  }
-}
+      "nodes": {
+        "shape": "dot",
+        "size": 16,
+        "font": {"size": 14, "color": "#000"},
+        "borderWidth": 2
+      },
+      "edges": {"width": 2},
+      "interaction": {"tooltipDelay": 200, "hideEdgesOnDrag": True},
+      "physics": {"stabilization": False}
+    }
     net.set_options(json.dumps(options))
 
     return net
