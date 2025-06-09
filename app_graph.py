@@ -71,8 +71,8 @@ def build_graph(selected_id, data):
                          href=r.get("wiki_link", "#"))
             net.add_edge(main_row["person_id"], r["person_id"], label=row["relationship_type"])
 
-    net.set_options("""
-    var options = {
+    net.set_options('''
+    {
       nodes: {
         shape: 'dot',
         size: 16,
@@ -93,7 +93,7 @@ def build_graph(selected_id, data):
         stabilization: false
       }
     }
-    """)
+}'''))
     return net
 
 # Streamlit 主程式
