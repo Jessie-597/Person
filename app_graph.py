@@ -1,3 +1,5 @@
+# 修正 pyvis 的 notebook=True 錯誤為 notebook=False
+fixed_streamlit_graph_code = '''\
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -87,9 +89,16 @@ for _, row in pr.iterrows():
     if row["person_id"] in person_ids:
         net.add_edge(row["person_id"], row["era_id"], label="身處時代")
 
-# 輸出 HTML 並嵌入前端
-net.show("story_graph.html")
+# 改為 write_html 並避免 notebook 模式
+net.write_html("story_graph.html", notebook=False)
 
 with open("story_graph.html", "r", encoding="utf-8") as f:
     html = f.read()
     components.html(html, height=750, scrolling=True)
+'''
+
+# 儲存修正後的版本
+with open("/mnt/data/app_graph.py", "w", encoding="utf-8") as f:
+    f.write(fixed_streamlit_graph_code)
+
+"/mnt/data/app_graph.py"
