@@ -65,7 +65,7 @@ for _, row in pr.iterrows():
 net.save_graph("story_graph.html")
 
 st.set_page_config(layout="wide")
-st.title("🌐 淡水人物誌知識圖譜互動查詢（含時代節點）")
+st.title("🌐 淡水人物誌知識圖譜互動查詢")
 
 with open("story_graph.html", "r", encoding="utf-8") as f:
     html = f.read()
