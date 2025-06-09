@@ -132,7 +132,7 @@ net.set_options("""
 """)
 
 # 輸出並嵌入
-net.write_html("graph.html", template="simple")
+net.write_html("graph.html")
 with open("graph.html", "r", encoding="utf-8") as f:
     graph_html = f.read()
 components.html(graph_html, height=700, scrolling=True)
