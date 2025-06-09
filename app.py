@@ -80,6 +80,48 @@ def build_knowledge_graph(selected_id, data):
     net.set_options(json.dumps(options))
     return net
 
+
+def build_full_graph(data):
+    net = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="black")
+
+    def add_all_nodes(df, id_col, label_col, wiki_col, group, color, title_col=None):
+        for _, row in df.iterrows():
+            label = row[label_col]
+            node_id = row[id_col]
+            title = row[title_col] if title_col and pd.notnull(row[title_col]) else label
+            href = row[wiki_col] if pd.notnull(row[wiki_col]) else "#"
+            net.add_node(node_id, label=label, title=title, group=group, color=color, href=href)
+
+    add_all_nodes(data["persons"], "person_id", "name", "wiki_link", "人物", "#FF6347", "contribution")
+    add_all_nodes(data["events"], "event_id", "event_name", "wiki_link", "事件", "#FFA500")
+    add_all_nodes(data["eras"], "era_id", "era_name", "wiki_link", "時代", "#9370DB")
+    add_all_nodes(data["locations"], "location_id", "location_name", "wiki_link", "地點", "#4682B4")
+    add_all_nodes(data["objects"], "object_id", "object_name", "wiki_link", "物件", "#3CB371")
+
+    def add_edges(df, src, tgt, label_col):
+        for _, row in df.iterrows():
+            net.add_edge(row[src], row[tgt], label=row[label_col])
+
+    add_edges(data["person_event"], "person_id", "event_id", "role")
+    add_edges(data["person_era"], "person_id", "era_id", "note")
+    add_edges(data["person_location"], "person_id", "location_id", "relation_type")
+    add_edges(data["person_object"], "person_id", "object_id", "relation_type")
+    add_edges(data["person_person"], "person_id_1", "person_id_2", "relationship_type")
+
+    net.set_options(json.dumps({
+        "nodes": {
+            "shape": "dot",
+            "size": 16,
+            "font": {"size": 14, "color": "#000"},
+            "borderWidth": 2
+        },
+        "edges": {"width": 2},
+        "interaction": {"tooltipDelay": 200, "hideEdgesOnDrag": True},
+        "physics": {"stabilization": False}
+    }))
+    return net
+
+
 # Streamlit 主介面
 st.set_page_config(page_title="淡水人物誌知識圖譜", layout="wide")
 st.title("📘 淡水人物誌知識圖譜")
