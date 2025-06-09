@@ -71,29 +71,30 @@ def build_graph(selected_id, data):
                          href=r.get("wiki_link", "#"))
             net.add_edge(main_row["person_id"], r["person_id"], label=row["relationship_type"])
 
-    net.set_options('''
-    {
-      nodes: {
-        shape: 'dot',
-        size: 16,
-        font: {
-          size: 14,
-          color: '#000'
-        },
-        borderWidth: 2
-      },
-      edges: {
-        width: 2
-      },
-      interaction: {
-        tooltipDelay: 200,
-        hideEdgesOnDrag: true
-      },
-      physics: {
-        stabilization: false
-      }
-    }
-}''')
+    import json
+    options = {
+  "nodes": {
+    "shape": "dot",
+    "size": 16,
+    "font": {
+      "size": 14,
+      "color": "#000"
+    },
+    "borderWidth": 2
+  },
+  "edges": {
+    "width": 2
+  },
+  "interaction": {
+    "tooltipDelay": 200,
+    "hideEdgesOnDrag": true
+  },
+  "physics": {
+    "stabilization": false
+  }
+}
+    net.set_options(json.dumps(options))
+
     return net
 
 # Streamlit 主程式
