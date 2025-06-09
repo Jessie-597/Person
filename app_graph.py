@@ -9,18 +9,15 @@ import json
 # 資料庫路徑
 db_path = "story_graph.db"
 
-# 建立資料庫連線
 def get_connection():
     return sqlite3.connect(db_path)
 
-# 載入資料表
 def load_table(table):
     conn = get_connection()
     df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     conn.close()
     return df
 
-# 載入所有資料（不改欄位名稱）
 def load_all_data():
     return {
         "persons": load_table("Persons"),
@@ -35,43 +32,40 @@ def load_all_data():
         "person_person": load_table("Person_Person")
     }
 
-# 建立知識圖譜
-def build_graph(selected_id, data):
-    net = Network(height="600px", width="100%", bgcolor="#ffffff", font_color="black")
+def build_knowledge_graph(selected_id, data):
+    net = Network(height="650px", width="100%", bgcolor="#ffffff", font_color="black")
 
-    main_row = data["persons"][data["persons"]["person_id"] == selected_id].iloc[0]
-    net.add_node(main_row["person_id"], label=main_row["name"],
-                 title=main_row["contribution"],
-                 href=main_row["wiki_link"], color="red")
+    main = data["persons"][data["persons"]["person_id"] == selected_id].iloc[0]
+    net.add_node(main["person_id"], label=main["name"], title=main["contribution"],
+                 href=main["wiki_link"], color="red", shape="dot")
 
-    def link_related(df, src_col, tgt_col, target_df, target_id_col, target_name_col, label):
-        links = df[df[src_col] == selected_id]
-        for _, row in links.iterrows():
+    def add_links(df, source_id, src_col, tgt_col, target_df, target_id_col, label_col, type_label, color):
+        for _, row in df[df[src_col] == source_id].iterrows():
             target_id = row[tgt_col]
             target = target_df[target_df[target_id_col] == target_id]
             if not target.empty:
                 t = target.iloc[0]
-                net.add_node(t[target_id_col], label=t[target_name_col],
-                             title=t.get("description", t.get("occupation", "")),
-                             href=t.get("wiki_link", "#"))
-                net.add_edge(main_row["person_id"], t[target_id_col], label=label)
+                label = t[label_col]
+                title = t.get("description", t.get("contribution", ""))
+                href = t.get("wiki_link", "#")
+                net.add_node(t[target_id_col], label=label, title=title, href=href, color=color)
+                net.add_edge(source_id, t[target_id_col], label=type_label)
 
-    link_related(data["person_event"], "person_id", "event_id", data["events"], "event_id", "event_name", "Event")
-    link_related(data["person_location"], "person_id", "location_id", data["locations"], "location_id", "location_name", "Location")
-    link_related(data["person_object"], "person_id", "object_id", data["objects"], "object_id", "object_name", "Object")
-    link_related(data["person_era"], "person_id", "era_id", data["eras"], "era_id", "era_name", "Era")
+    add_links(data["person_event"], selected_id, "person_id", "event_id", data["events"], "event_id", "event_name", "事件", "#FFA07A")
+    add_links(data["person_era"], selected_id, "person_id", "era_id", data["eras"], "era_id", "era_name", "時代", "#9370DB")
+    add_links(data["person_location"], selected_id, "person_id", "location_id", data["locations"], "location_id", "location_name", "地點", "#87CEFA")
+    add_links(data["person_object"], selected_id, "person_id", "object_id", data["objects"], "object_id", "object_name", "物件", "#90EE90")
 
     for _, row in data["person_person"][data["person_person"]["person_id_1"] == selected_id].iterrows():
         related_id = row["person_id_2"]
+        relation = row["relationship_type"]
         related = data["persons"][data["persons"]["person_id"] == related_id]
         if not related.empty:
             r = related.iloc[0]
-            net.add_node(r["person_id"], label=r["name"],
-                         title=r.get("contribution", ""),
-                         href=r.get("wiki_link", "#"))
-            net.add_edge(main_row["person_id"], r["person_id"], label=row["relationship_type"])
+            net.add_node(r["person_id"], label=r["name"], title=r.get("contribution", ""),
+                         href=r.get("wiki_link", "#"), color="#F4A460")
+            net.add_edge(selected_id, r["person_id"], label=relation)
 
-    # 合法 JSON 選項
     options = {
       "nodes": {
         "shape": "dot",
@@ -84,18 +78,17 @@ def build_graph(selected_id, data):
       "physics": {"stabilization": False}
     }
     net.set_options(json.dumps(options))
-
     return net
 
-# Streamlit 主程式
-st.set_page_config(page_title="淡水人物知識圖譜", layout="wide")
-st.title("📚 淡水人物誌知識圖譜系統")
+# Streamlit 主介面
+st.set_page_config(page_title="淡水人物誌知識圖譜", layout="wide")
+st.title("📘 淡水人物誌知識圖譜")
 
 data = load_all_data()
-persons = data["persons"][["person_id", "name"]]
-selected_name = st.selectbox("請選擇人物：", persons["name"])
-selected_id = persons[persons["name"] == selected_name]["person_id"].values[0]
+persons_df = data["persons"][["person_id", "name"]]
+selected_name = st.selectbox("請選擇人物：", persons_df["name"])
+selected_id = persons_df[persons_df["name"] == selected_name]["person_id"].values[0]
 
-net = build_graph(selected_id, data)
+net = build_knowledge_graph(selected_id, data)
 net.save_graph("graph.html")
-components.html(open("graph.html", "r", encoding="utf-8").read(), height=620, scrolling=True)
+components.html(open("graph.html", "r", encoding="utf-8").read(), height=680, scrolling=True)
