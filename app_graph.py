@@ -21,7 +21,68 @@ def load_table(table):
 
 # 載入所有資料
 def load_all_data():
-    df = load_table("Persons")
+    # 載入與依據實際欄位個別重新命名
+    df_persons = load_table("Persons")
+    df_persons.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_events = load_table("Events")
+    df_events.rename(columns={"event_id": "id", "event_name": "name", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_eras = load_table("Eras")
+    df_eras.rename(columns={"era_id": "id", "era_name": "name", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_locations = load_table("Locations")
+    df_locations.rename(columns={"location_id": "id", "location_name": "name", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_objects = load_table("Objects")
+    df_objects.rename(columns={"object_id": "id", "object_name": "name", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_person_event = load_table("Person_Event")
+    df_person_location = load_table("Person_Location")
+    df_person_object = load_table("Person_Object")
+    df_person_era = load_table("Person_Era")
+    df_person_person = load_table("Person_Person")
+    df_person_person.rename(columns={"person_id_1": "person_id", "person_id_2": "related_person_id"}, inplace=True)
+
+    return {
+        "persons": df_persons,
+        "events": df_events,
+        "eras": df_eras,
+        "locations": df_locations,
+        "objects": df_objects,
+        "person_event": df_person_event,
+        "person_location": df_person_location,
+        "person_object": df_person_object,
+        "person_era": df_person_era,
+        "person_person": df_person_person
+    }
+    df_persons = load_table("Persons")
+    df_persons.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_events = load_table("Events")
+    df_events.rename(columns={"event_id": "id", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_locations = load_table("Locations")
+    df_locations.rename(columns={"location_id": "id", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_objects = load_table("Objects")
+    df_objects.rename(columns={"object_id": "id", "wiki_link": "wiki_url"}, inplace=True)
+
+    df_person_event = load_table("Person_Event")
+    df_person_location = load_table("Person_Location")
+    df_person_object = load_table("Person_Object")
+    df_person_person = load_table("Person_Person")
+
+    return {
+        "persons": df_persons,
+        "events": df_events,
+        "locations": df_locations,
+        "objects": df_objects,
+        "person_event": df_person_event,
+        "person_location": df_person_location,
+        "person_object": df_person_object,
+        "person_person": df_person_person
+    }
     df.rename(columns={"person_id": "id", "wiki_link": "wiki_url"}, inplace=True)
     return {
         "persons": df,
