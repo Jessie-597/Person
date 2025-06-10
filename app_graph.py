@@ -17,7 +17,6 @@ COLOR_MAP = {
 
 def create_network():
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="black")
-    net.force_atlas_2based(gravity=-50, central_gravity=0.01, spring_length=200, spring_strength=0.05)
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -63,21 +62,11 @@ def create_network():
     net.set_options("""
     {
       "physics": {
-        "repulsion": {
-          "nodeDistance": 200,
-          "centralGravity": 0.01,
-          "springLength": 200,
-          "springConstant": 0.05
-        },
-        "solver": "repulsion"
+        "enabled": false
       },
       "interaction": {
-        "tooltipDelay": 200,
         "dragNodes": true,
-        "hideEdgesOnDrag": false
-      },
-      "manipulation": {
-        "enabled": false
+        "tooltipDelay": 200
       }
     }
     """)
