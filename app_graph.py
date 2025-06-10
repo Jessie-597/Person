@@ -73,7 +73,11 @@ def create_network():
       },
       "interaction": {
         "tooltipDelay": 200,
-        "hideEdgesOnDrag": true
+        "dragNodes": true,
+        "hideEdgesOnDrag": false
+      },
+      "manipulation": {
+        "enabled": false
       }
     }
     """)
