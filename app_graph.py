@@ -17,10 +17,9 @@ COLOR_MAP = {
 
 def create_network():
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="black")
+    net.force_atlas_2based(gravity=-50, central_gravity=0.01, spring_length=200, spring_strength=0.05)
 
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     persons = pd.read_sql_query("SELECT * FROM Persons", conn)
     events = pd.read_sql_query("SELECT * FROM Events", conn)
     eras = pd.read_sql_query("SELECT * FROM Eras", conn)
@@ -62,7 +61,14 @@ def create_network():
     net.set_options("""
     {
       "physics": {
-        "enabled": false
+        "enabled": true,
+        "repulsion": {
+          "nodeDistance": 200,
+          "centralGravity": 0.01,
+          "springLength": 200,
+          "springConstant": 0.05
+        },
+        "solver": "repulsion"
       },
       "interaction": {
         "dragNodes": true,
@@ -82,9 +88,11 @@ net.save_graph("graph.html")
 with open("graph.html", "r", encoding="utf-8") as f:
     html_content = f.read()
 
+# 點擊節點開啟 wiki_link + 3 秒後關閉 physics
 custom_js = """
 <script type="text/javascript">
-function addOpenWikiListener() {
+function setupGraph() {
+  // 點擊節點開啟 wiki
   network.on("click", function(params) {
     if (params.nodes.length > 0) {
       var nodeId = params.nodes[0];
@@ -94,8 +102,13 @@ function addOpenWikiListener() {
       }
     }
   });
+
+  // 三秒後關閉 physics，讓節點固定
+  setTimeout(function () {
+    network.setOptions({ physics: { enabled: false } });
+  }, 3000);
 }
-window.addEventListener("load", addOpenWikiListener);
+window.addEventListener("load", setupGraph);
 </script>
 </body>
 """
