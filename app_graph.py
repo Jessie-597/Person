@@ -5,10 +5,8 @@ import sqlite3
 from pyvis.network import Network
 import streamlit.components.v1 as components
 
-# 資料庫路徑
 DB_PATH = "story_graph.db"
 
-# 類別顏色定義
 COLOR_MAP = {
     "Person": "blue",
     "Event": "red",
@@ -17,22 +15,19 @@ COLOR_MAP = {
     "Object": "purple"
 }
 
-# 建立 Pyvis 網路圖
 def create_network():
     net = Network(height="700px", width="100%", bgcolor="#ffffff", font_color="black")
-    net.force_atlas_2based()
+    net.force_atlas_2based(gravity=-50, central_gravity=0.01, spring_length=200, spring_strength=0.05)
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    # 載入主表資料
     persons = pd.read_sql_query("SELECT * FROM Persons", conn)
     events = pd.read_sql_query("SELECT * FROM Events", conn)
     eras = pd.read_sql_query("SELECT * FROM Eras", conn)
     locations = pd.read_sql_query("SELECT * FROM Locations", conn)
     objects = pd.read_sql_query("SELECT * FROM Objects", conn)
 
-    # 加入節點
     def add_node_safe(net, node_id, label, color, wiki_link, title):
         if pd.notna(wiki_link) and wiki_link.strip():
             net.add_node(node_id, label=label, color=color, title=title,
@@ -52,7 +47,6 @@ def create_network():
     for _, row in objects.iterrows():
         add_node_safe(net, row["object_id"], row["object_name"], COLOR_MAP["Object"], row["wiki_link"], "物件")
 
-    # 載入關聯資料並建立邊
     def add_edges(query, src, tgt, label):
         df = pd.read_sql_query(query, conn)
         for _, row in df.iterrows():
@@ -68,9 +62,14 @@ def create_network():
 
     net.set_options("""
     {
-      "nodes": {
-        "shape": "dot",
-        "size": 16
+      "physics": {
+        "repulsion": {
+          "nodeDistance": 200,
+          "centralGravity": 0.01,
+          "springLength": 200,
+          "springConstant": 0.05
+        },
+        "solver": "repulsion"
       },
       "interaction": {
         "tooltipDelay": 200,
@@ -81,14 +80,12 @@ def create_network():
 
     return net
 
-# Streamlit 主介面
 st.set_page_config(layout="wide")
 st.title("大淡水人物誌知識圖譜")
 
 net = create_network()
 net.save_graph("graph.html")
 
-# 修改 HTML：加入自訂 JS 在節點點擊時開啟 wiki_link
 with open("graph.html", "r", encoding="utf-8") as f:
     html_content = f.read()
 
