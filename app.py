@@ -1,94 +1,104 @@
+
 import streamlit as st
 import pandas as pd
 import sqlite3
 from pyvis.network import Network
 import streamlit.components.v1 as components
 
-# 載入 SQLite 資料庫
+# 資料庫路徑
+DB_PATH = "story_graph.db"
+
+# 從 SQLite 載入所有資料表為 pandas DataFrame
 def load_data():
-    conn = sqlite3.connect("story_graph.db")
-    data = {
-        "persons": pd.read_sql("SELECT * FROM persons", conn),
-        "events": pd.read_sql("SELECT * FROM events", conn),
-        "locations": pd.read_sql("SELECT * FROM locations", conn),
-        "objects": pd.read_sql("SELECT * FROM objects", conn),
-        "eras": pd.read_sql("SELECT * FROM eras", conn),
-        "person_event": pd.read_sql("SELECT * FROM person_event", conn),
-        "person_location": pd.read_sql("SELECT * FROM person_location", conn),
-        "person_object": pd.read_sql("SELECT * FROM person_object", conn),
-        "person_era": pd.read_sql("SELECT * FROM person_era", conn),
-        "person_person": pd.read_sql("SELECT * FROM person_person", conn)
-    }
+    conn = sqlite3.connect(DB_PATH)
+    data = {}
+    tables = ["persons", "events", "eras", "locations", "objects",
+              "person_event", "person_era", "person_location", "person_object", "person_person"]
+    for table in tables:
+        data[table] = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     conn.close()
     return data
 
-# 建立知識圖譜
-
-def build_knowledge_graph(selected_id, data):
-    net = Network(height="700px", width="100%", bgcolor="#FFFFFF", font_color="black")
+# 建立知識圖譜（支援單一人物與全部人物）
+def build_knowledge_graph(person_id, data):
+    net = Network(height="750px", width="100%", bgcolor="#ffffff", font_color="black", directed=True)
     net.force_atlas_2based()
 
-    person_df = data["persons"]
-    filtered_persons = person_df if selected_id == "ALL" else person_df[person_df.id == selected_id]
-
-    color_map = {
-        "person": "gold",
-        "event": "skyblue",
-        "location": "lightgreen",
-        "object": "tomato",
-        "era": "pink"
+    # 設定節點顏色
+    colors = {
+        "person": "#f94144",
+        "event": "#f3722c",
+        "era": "#f9c74f",
+        "location": "#43aa8b",
+        "object": "#577590"
     }
 
-    for _, row in filtered_persons.iterrows():
-        net.add_node(f"P{row.id}", label=row.name, color=color_map["person"], title=row.name,
-                     shape='dot', size=25, 
-                     href=row.wiki_link if pd.notna(row.wiki_link) else None)
+    # 建立節點與邊的集合（避免重複）
+    added_nodes = set()
 
-    def add_node(df, prefix, color, label_field="name"):
-        for _, row in df.iterrows():
-            node_id = f"{prefix}{row.id}"
-            label = getattr(row, label_field, f"{prefix}{row.id}")
-            href = getattr(row, "wiki_link", None)
-            net.add_node(node_id, label=label, color=color, 
-                         href=href if pd.notna(href) else None)
+    def add_node(node_id, label, title, group, url):
+        if node_id not in added_nodes:
+            net.add_node(node_id, label=label, title=title, color=colors[group], shape="dot", size=15, 
+                         font={"size": 14}, url=url)
+            added_nodes.add(node_id)
 
-    add_node(data["events"], "E", color_map["event"])
-    add_node(data["locations"], "L", color_map["location"])
-    add_node(data["objects"], "O", color_map["object"])
-    add_node(data["eras"], "T", color_map["era"], label_field="era")
+    # 加入人物節點（單一或全部）
+    persons = data["persons"]
+    if person_id == "ALL":
+        selected_persons = persons
+    else:
+        selected_persons = persons[persons["id"] == person_id]
 
-    def add_edges(df, prefix, label_field, target_prefix):
-        for _, row in df.iterrows():
-            if selected_id != "ALL" and row.person_id != selected_id:
-                continue
-            label = getattr(row, label_field, "")
-            net.add_edge(f"P{row.person_id}", f"{target_prefix}{row[prefix]}", label=label)
+    for _, person in selected_persons.iterrows():
+        add_node(f"person_{person['id']}", person["name"], "人物", "person", person.get("wiki_link", ""))
 
-    add_edges(data["person_event"], "event_id", "role", "E")
-    add_edges(data["person_location"], "location_id", "description", "L")
-    add_edges(data["person_object"], "object_id", "description", "O")
-    add_edges(data["person_era"], "era_id", "description", "T")
+    # 加入所有關聯節點與邊
+    for _, row in data["person_event"].iterrows():
+        if person_id == "ALL" or row["person_id"] == person_id:
+            event = data["events"][data["events"]["id"] == row["event_id"]].iloc[0]
+            add_node(f"event_{event['id']}", event["name"], event.get("description", "事件"), "event", event.get("wiki_link", ""))
+            net.add_edge(f"person_{row['person_id']}", f"event_{row['event_id']}", label=row.get("role", "參與"))
+
+    for _, row in data["person_era"].iterrows():
+        if person_id == "ALL" or row["person_id"] == person_id:
+            era = data["eras"][data["eras"]["id"] == row["era_id"]].iloc[0]
+            add_node(f"era_{era['id']}", era["name"], "時代", "era", era.get("wiki_link", ""))
+            net.add_edge(f"person_{row['person_id']}", f"era_{row['era_id']}", label="活躍時期")
+
+    for _, row in data["person_location"].iterrows():
+        if person_id == "ALL" or row["person_id"] == person_id:
+            loc = data["locations"][data["locations"]["id"] == row["location_id"]].iloc[0]
+            add_node(f"location_{loc['id']}", loc["name"], loc.get("type", "地點"), "location", loc.get("wiki_link", ""))
+            net.add_edge(f"person_{row['person_id']}", f"location_{row['location_id']}", label=loc.get("description", "地點"))
+
+    for _, row in data["person_object"].iterrows():
+        if person_id == "ALL" or row["person_id"] == person_id:
+            obj = data["objects"][data["objects"]["id"] == row["object_id"]].iloc[0]
+            add_node(f"object_{obj['id']}", obj["name"], obj.get("description", "物件"), "object", obj.get("wiki_link", ""))
+            net.add_edge(f"person_{row['person_id']}", f"object_{row['object_id']}", label=obj.get("description", "物件"))
 
     for _, row in data["person_person"].iterrows():
-        if selected_id != "ALL" and row.source_id != selected_id and row.target_id != selected_id:
-            continue
-        net.add_edge(f"P{row.source_id}", f"P{row.target_id}", label=row.relation)
+        if person_id == "ALL" or row["person_id_1"] == person_id or row["person_id_2"] == person_id:
+            net.add_edge(f"person_{row['person_id_1']}", f"person_{row['person_id_2']}", label=row.get("relation", "關係"))
 
     return net
 
 # Streamlit 介面
-st.set_page_config(layout="wide")
-st.title("淡水人物誌知識圖譜視覺化")
-data = load_data()
-person_options = [("全部人物串聯", "ALL")] + [(row.name, row.id) for _, row in data["persons"].iterrows()]
-selected_id = st.selectbox("請選擇要視覺化的人物（可選全部）", options=[val for _, val in person_options],
-                           format_func=lambda x: dict(person_options).get(x, "全部人物串聯"))
+st.set_page_config(page_title="淡水人物知識圖譜", layout="wide")
+st.title("📚 淡水人物知識圖譜")
 
-if st.button("產生知識圖譜"):
-    net = build_knowledge_graph(selected_id, data)
-    net.save_graph("graph.html")
-    HtmlFile = open("graph.html", "r", encoding='utf-8')
-    source_code = HtmlFile.read()
-    components.html(source_code, height=750, scrolling=True)
-else:
-    st.info("請選擇人物並點擊按鈕產生知識圖譜")
+# 載入資料
+data = load_data()
+
+# 選擇人物
+person_options = data["persons"][["id", "name"]].dropna()
+person_dict = dict(zip(person_options["name"], person_options["id"]))
+person_dict["全部人物串聯"] = "ALL"
+
+selected_name = st.selectbox("選擇要顯示的主角人物或串聯所有人物", options=list(person_dict.keys()))
+selected_id = person_dict[selected_name]
+
+# 建立圖譜並顯示
+net = build_knowledge_graph(selected_id, data)
+net.save_graph("graph.html")
+components.html(open("graph.html", "r", encoding="utf-8").read(), height=800)
