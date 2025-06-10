@@ -87,4 +87,32 @@ st.title("大淡水人物誌知識圖譜")
 
 net = create_network()
 net.save_graph("graph.html")
-components.html(open("graph.html", "r", encoding="utf-8").read(), height=700, scrolling=True)
+
+# 修改 HTML：加入自訂 JS 在節點點擊時開啟 wiki_link
+with open("graph.html", "r", encoding="utf-8") as f:
+    html_content = f.read()
+
+custom_js = """
+<script type="text/javascript">
+function addOpenWikiListener() {
+  network.on("click", function(params) {
+    if (params.nodes.length > 0) {
+      var nodeId = params.nodes[0];
+      var node = nodes.get(nodeId);
+      if (node.url) {
+        window.open(node.url, "_blank");
+      }
+    }
+  });
+}
+window.addEventListener("load", addOpenWikiListener);
+</script>
+</body>
+"""
+
+html_content = html_content.replace("</body>", custom_js)
+
+with open("graph.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+components.html(html_content, height=700, scrolling=True)
